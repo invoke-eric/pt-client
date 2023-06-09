@@ -1,6 +1,7 @@
 import pandas as pd
 import argparse
 import re
+import sys
 from passivetotal import analyzer
 
 
@@ -39,51 +40,47 @@ ipregex = re.compile(r'(?:(?:\d|[01]?\d\d|2[0-4]\d|25[0-5])\.){3}(?:25[0-5]|2[0-
 domainregex = re.compile(r'\b((?=[a-z0-9-]{1,63}\.)(xn--)?[a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,63}\b')
 sha1regex = re.compile(r'([0-9a-f]{40})')
 
-def create_domainlist(filename):
+def create_domainlist(input):
     domainlist = []
-    with open(str(filename), "r") as input:
-        for line in input:
-            line = line.strip()
+    for line in input:
+        line = line.strip()
 
-            match_domainregex = domainregex.match(line)
+        match_domainregex = domainregex.match(line)
 
-            if match_domainregex:
-                domainlist.append(line)
+        if match_domainregex:
+            domainlist.append(line)
 
-            elif not match_domainregex:
-                pass
+        elif not match_domainregex:
+            pass
     
     return(domainlist)
 
-def create_iplist(filename):
+def create_iplist(input):
     iplist = []
-    with open(str(filename), "r") as input:
-            for line in input:
-                line = line.strip()
+    for line in input:
+        line = line.strip()
 
-                match_ipregex = ipregex.match(line)
+        match_ipregex = ipregex.match(line)
 
-                if match_ipregex:
-                    iplist.append(line)
+        if match_ipregex:
+            iplist.append(line)
 
-                elif not match_ipregex:
-                    pass
-    
+        elif not match_ipregex:
+            pass
     return(iplist)
 
-def create_certlist(filename):
+def create_certlist(input):
     certlist = []
-    with open(str(filename), "r") as input:
-            for line in input:
-                line = line.strip()
+    for line in input:
+        line = line.strip()
 
-                match_sha1regex = sha1regex.match(line)
+        match_sha1regex = sha1regex.match(line)
 
-                if match_sha1regex:
-                    certlist.append(line)
+        if match_sha1regex:
+            certlist.append(line)
 
-                elif not match_sha1regex:
-                    pass
+        elif not match_sha1regex:
+            pass
     
     return(certlist)
 
@@ -93,7 +90,7 @@ def write_csv(df, csv_path):
 def main():
     analyzer.init()
     parser = argparse.ArgumentParser()
-    parser.add_argument("input_file", action="store", help="name of file containing IOCs of interest")
+    parser.add_argument("input_file", nargs="?", action="store", help="name of file containing IOCs of interest")
 
     parser.add_argument("--csv", "-c", action="store", help="output csv path prefix")
     parser.add_argument("--start", "-s", action="store", help="query start date")
@@ -105,9 +102,23 @@ def main():
     parser.add_argument("--certificates", action="store_true", help="Retrieve IP history for certificates by SHA1 fingerprint")
     args = parser.parse_args()
 
-    filename = args.input_file
+    if (args.input_file):
+        with open(args.input_file, 'r') as file:
+            domainlist = create_domainlist(file)
+        with open(args.input_file, 'r') as file:
+            iplist = create_iplist(file)
+        with open(args.input_file, 'r') as file:
+            certlist = create_certlist(file)
+    else:
+        data = sys.stdin.readlines()
+        domainlist = create_domainlist(data)
+        iplist = create_iplist(data)
+        certlist = create_certlist(data)
+        
 
-    domainlist = create_domainlist(filename)
+    #filename = args.input_file
+
+    #domainlist = create_domainlist(filename)
     
     if(args.start):
         if(args.end):
@@ -133,7 +144,7 @@ def main():
 
 
     if(args.reverse):
-        iplist = create_iplist(filename)
+        #iplist = create_iplist(filename)
         df_list = []
         for i in iplist:
             reverse = get_IP_reverse_resolutions_df(i)
@@ -173,7 +184,7 @@ def main():
             write_csv(soa_df, "soa.csv")
     
     if(args.certificates):
-        certlist = create_certlist(filename)
+
         df_list = []
         for i in certlist:
             cert = get_cert_df(i)
