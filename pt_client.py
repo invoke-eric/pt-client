@@ -36,6 +36,13 @@ def get_cert_df(cert_sha1):
     hist_df = pd.DataFrame(hist)
     return(hist_df)
 
+def get_ipinfo_df(ip_address):
+    ip = analyzer.IPAddress(ip_address)
+    ip_info_df = ip.summary.as_df
+    return(ip_info_df)
+
+
+
 ipregex = re.compile(r'(?:(?:\d|[01]?\d\d|2[0-4]\d|25[0-5])\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d|\d)(?:\/\d{1,2})?')
 domainregex = re.compile(r'\b((?=[a-z0-9-]{1,63}\.)(xn--)?[a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,63}\b')
 sha1regex = re.compile(r'([0-9a-f]{40})')
@@ -90,7 +97,7 @@ def write_csv(df, csv_path):
 def main():
     analyzer.init()
     parser = argparse.ArgumentParser()
-    parser.add_argument("input_file", nargs="?", action="store", help="name of file containing IOCs of interest")
+    parser.add_argument("input_file", nargs="?", action="store", help="OPTIONAL - name of file containing IOCs of interest; if not provided, reads from STDIN")
 
     parser.add_argument("--csv", "-c", action="store", help="output csv path prefix")
     parser.add_argument("--start", "-s", action="store", help="query start date")
@@ -100,6 +107,7 @@ def main():
     parser.add_argument("--whois", "-w", action="store_true", help="retrieve WHOIS records")
     parser.add_argument("--soa", action="store_true", help="retrieve SOA records")
     parser.add_argument("--certificates", action="store_true", help="Retrieve IP history for certificates by SHA1 fingerprint")
+    parser.add_argument("--ipinfo", "-i", action="store_true", help="Retrieve IP info for a list of IPs")
     args = parser.parse_args()
 
     if (args.input_file):
@@ -184,7 +192,6 @@ def main():
             write_csv(soa_df, "soa.csv")
     
     if(args.certificates):
-
         df_list = []
         for i in certlist:
             cert = get_cert_df(i)
@@ -196,6 +203,19 @@ def main():
             write_csv(cert_df, path)
         else:
             write_csv(cert_df, "cert_iphistory.csv")
+    
+    if(args.ipinfo):
+        df_list = []
+        for i in iplist:
+            ip_info_df = get_ipinfo_df(i)
+            df_list.append(ip_info_df)
+        result_df = concat_dataframes(df_list)
+
+        if(args.csv):
+            path = args.csv + "ipinfo.csv"
+            write_csv(result_df, path)
+        else:
+            write_csv(result_df, "ipinfo.csv")
 
 
 if __name__ == '__main__':
